@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path"
@@ -22,7 +23,7 @@ var translateCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := context.Background()
 
-		apiKey := os.Getenv("OPENAI_API_KEY")
+		apiKey := "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"
 		if apiKey == "" {
 			fmt.Println("environment variable OPENAI_API_KEY is empty")
 			return
@@ -30,7 +31,7 @@ var translateCmd = &cobra.Command{
 
 		gptHandler := gpt.New(gpt.Config{
 			Keys:    []string{apiKey},
-			Timeout: time.Duration(10) * time.Second,
+			Timeout: time.Duration(60) * time.Second,
 		})
 
 		source, others, indep, err := provideFiles(cmd)
@@ -64,6 +65,18 @@ var translateCmd = &cobra.Command{
 
 func single_process(ctx context.Context, gptHandler *gpt.Handler, source *parser.LocaleFileContent, target *parser.LocaleFileContent, indep *parser.LocaleFileContent) error {
 	count := 1
+
+	// First find missing keys
+	missingKeys := findMissingKeys(source.LocaleItemsMap, target.LocaleItemsMap)
+	if len(missingKeys) > 0 {
+		fmt.Printf("Found %d missing keys for %s\n", len(missingKeys), target.Path)
+		for k := range missingKeys {
+			if v, ok := source.LocaleItemsMap[k]; ok {
+				target.LocaleItemsMap[k] = "" // Initialize with empty string to trigger translation
+			}
+		}
+	}
+
 	for k, v := range source.LocaleItemsMap {
 		needToTranslate := false
 		if len(v) != 0 {
@@ -87,11 +100,41 @@ func single_process(ctx context.Context, gptHandler *gpt.Handler, source *parser
 			}
 
 			if needToTranslate {
-				result, err := gptHandler.Translate(ctx, v, target.Lang)
-				if err != nil {
-					return err
+				// Check if the value is a string array
+				if strings.HasPrefix(v, "[") && strings.HasSuffix(v, "]") {
+					// Handle string array
+					var stringArray []string
+					if err := json.Unmarshal([]byte(v), &stringArray); err == nil {
+						translatedArray := make([]string, len(stringArray))
+						for i, str := range stringArray {
+							translated, err := gptHandler.Translate(ctx, str, target.Lang)
+							if err != nil {
+								return err
+							}
+							translatedArray[i] = translated
+						}
+						// Convert back to JSON string
+						resultBytes, err := json.Marshal(translatedArray)
+						if err != nil {
+							return err
+						}
+						target.LocaleItemsMap[k] = string(resultBytes)
+					} else {
+						// If not a valid string array, treat as regular string
+						result, err := gptHandler.Translate(ctx, v, target.Lang)
+						if err != nil {
+							return err
+						}
+						target.LocaleItemsMap[k] = result
+					}
+				} else {
+					// Regular string translation
+					result, err := gptHandler.Translate(ctx, v, target.Lang)
+					if err != nil {
+						return err
+					}
+					target.LocaleItemsMap[k] = result
 				}
-				target.LocaleItemsMap[k] = result
 			}
 
 			fmt.Printf("\r🔄 %s: %d/%d", target.Path, count, len(source.LocaleItemsMap))
@@ -280,4 +323,15 @@ func init() {
 	translateCmd.Flags().IntVar(&batchSize, "batch", 0, "Size of the batch for translations. If 0 or not provided, translates one at a time.")
 
 	rootCmd.AddCommand(translateCmd)
+}
+
+// Helper function to find missing keys in target compared to source
+func findMissingKeys(source, target map[string]string) map[string]struct{} {
+	missing := make(map[string]struct{})
+	for k := range source {
+		if _, exists := target[k]; !exists {
+			missing[k] = struct{}{}
+		}
+	}
+	return missing
 }

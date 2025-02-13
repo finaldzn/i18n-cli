@@ -125,7 +125,7 @@ func (h *Handler) BatchTranslate(ctx context.Context, srcs []string, lang string
 		}
 
 		request := gogpt.ChatCompletionRequest{
-			Model:          "gpt-3.5-turbo-0125",
+			Model:          "gpt-4o-mini",
 			Messages:       messages,
 			MaxTokens:      1024,
 			Temperature:    0.1,
