@@ -63,7 +63,7 @@ func (h *Handler) Translate(ctx context.Context, text string, lang string) (stri
 
 		// Create chat completion request
 		completionReq := gogpt.ChatCompletionRequest{
-			Model: "gpt-3.5-turbo",
+			Model: "gpt-4o-2024-11-20",
 			Messages: []gogpt.ChatCompletionMessage{
 				{
 					Role:    "system",
@@ -151,7 +151,7 @@ func (h *Handler) BatchTranslate(ctx context.Context, texts []string, lang strin
 
 		// Create chat completion request
 		completionReq := gogpt.ChatCompletionRequest{
-			Model: "gpt-3.5-turbo",
+			Model: "gpt-4o-2024-11-20",
 			Messages: []gogpt.ChatCompletionMessage{
 				{
 					Role:    "system",
