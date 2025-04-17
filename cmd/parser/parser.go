@@ -135,3 +135,39 @@ func langCodeToName(code string) (string, error) {
 	}
 	return display.Self.Name(tag), nil
 }
+
+// LangCodeToName converts a language code to a display name
+func LangCodeToName(code string) (string, error) {
+	return langCodeToName(code)
+}
+
+// ParseContent reads and parses a JSON file's content without language validation
+func (l *LocaleFileContent) ParseContent() error {
+	var err error
+	if _, err = os.Stat(l.Path); err != nil {
+		return err
+	}
+
+	// Make sure we have a map
+	if l.LocaleItemsMap == nil {
+		l.LocaleItemsMap = make(map[string]string)
+	}
+
+	// Read the json file
+	sourceBytes, err := os.ReadFile(l.Path)
+	if err != nil {
+		return err
+	}
+
+	// Convert to map
+	var data map[string]interface{}
+	if err := json.Unmarshal(sourceBytes, &data); err != nil {
+		return err
+	}
+
+	result := make(map[string]string)
+	flatten(data, "", result)
+
+	l.LocaleItemsMap = result
+	return nil
+}
