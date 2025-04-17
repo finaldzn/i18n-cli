@@ -24,7 +24,7 @@ var translateCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := context.Background()
 
-		apiKey := "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"
+		apiKey := os.Getenv("OPENAI_API_KEY")
 		if apiKey == "" {
 			fmt.Println("environment variable OPENAI_API_KEY is empty")
 			return
